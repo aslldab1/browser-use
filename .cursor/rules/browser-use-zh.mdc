@@ -1,0 +1,93 @@
+# 🧠 browser-use 项目开发指南
+
+**Browser-Use** 是一个能够自主与网页交互的 AI 代理。它接收用户定义的任务，使用 Playwright 驱动 Chromium 浏览网页，处理 HTML，并反复调用语言模型（如 `gpt-4o`）来决定下一步操作，直到任务完成。
+
+## 🗂️ 文件文档规范
+
+当创建**新文件**时：
+
+* **面向人类**：在文件顶部添加自然语言的文档字符串，说明：
+  * 该文件的作用
+  * 它在 browser-use 系统中的定位
+  * 是否引入了新的抽象或替换了旧的实现
+* **面向 LLM/AI**：使用标准化注释添加结构化元数据，例如：
+
+  ```python
+  # @file purpose: 定义 <用途>
+  ```
+
+## 🧰 开发规则
+
+### 依赖管理
+* ✅ **始终使用 [`uv`](https://github.com/astral-sh/uv) 替代 `pip`**
+  用于确定性和快速的依赖安装。
+
+```bash
+uv venv --python 3.11
+source .venv/bin/activate
+uv sync
+```
+
+### 模型使用
+* ✅ **使用真实的模型名称**
+  不要用 `gpt-4` 替换 `gpt-4o`。`gpt-4o` 是一个独立的版本且已被支持。
+
+### 代码质量
+* ✅ **类型安全编码**
+  所有内部 action schema、任务输入/输出、controller I/O 都要使用 **Pydantic v2 模型**。这能确保健壮的校验和 LLM 调用的完整性。
+
+## ⚙️ 添加新 Action
+
+要为浏览器代理添加一个可执行的新 action：
+
+```python
+from playwright.async_api import Page
+from browser_use.core.controller import Controller, ActionResult
+
+controller = Controller()
+
+@controller.registry.action("搜索特定查询的网页")
+async def search_web(query: str, page: Page):
+    # 在这里实现你的逻辑，例如查询搜索引擎并返回结果
+    result = ...
+    return ActionResult(extracted_content=result, include_in_memory=True)
+```
+
+### 注意事项：
+* 为每个 action 使用描述性名称和文档字符串
+* 优先返回带结构化内容的 `ActionResult`，以帮助 agent 更好地推理
+
+## 🧠 创建和运行 Agent
+
+定义任务并运行 browser-use agent：
+
+```python
+from browser_use import Agent
+from browser_use.llm import ChatOpenAI
+
+task = "查找 OpenAI 的 CEO 并返回其姓名"
+model = ChatOpenAI(model="gpt-4.1-mini")
+
+agent = Agent(task=task, llm=model, controller=controller)
+
+history = await agent.run()
+```
+
+## 📁 项目结构
+
+主要入口点是 [browser_use/__init__.py](mdc:browser_use/__init__.py)，核心功能分布在以下目录：
+
+- [browser_use/agent/](mdc:browser_use/agent/) - Agent 相关逻辑
+- [browser_use/browser/](mdc:browser_use/browser/) - 浏览器控制
+- [browser_use/controller/](mdc:browser_use/controller/) - 动作控制器
+- [browser_use/llm/](mdc:browser_use/llm/) - 语言模型集成
+- [examples/](mdc:examples/) - 使用示例
+
+## ⚠️ 重要提醒
+
+**切勿创建随机示例文件**：当实现某个功能时，不要创建新的文件来展示该功能——这样会让代码变得混乱。如果需要测试，只需在终端内联代码即可。
+description:
+globs:
+alwaysApply: false
+---
+ 
